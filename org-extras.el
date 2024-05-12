@@ -42,7 +42,7 @@
    t
    (if include-archive
        "\\.org\\(_archive\\)?$"
-     "\\.org$")))
+       "\\.org$")))
 
 (defun org-extras-files-archive-files (file-paths)
   "Return list of archive files for FILE-PATHS."
@@ -54,45 +54,17 @@
         archive-path))
     file-paths)))
 
-(defun org-extras--filetags (element)
-  "Return list of filetags in ELEMENT.
-
-Reference: https://emacs.stackexchange.com/a/75954/37010"
-  (let ((type
-         (org-element-type
-          element))
-        (key
-         (org-element-property
-          :key element))
-        (value
-         (org-element-property
-          :value element)))
-    (if (and (eq type
-                 'keyword)
-             (equal key
-                    "FILETAGS"))
-        (string-split
-         value
-         ":"
-         t))))
-
 (defun org-extras-filetags-in-buffer (buffer-or-name)
   "Return list of filetags in BUFFER-OR-NAME."
-  (-flatten
-   (with-current-buffer buffer-or-name
-     (org-element-map
-         (org-element-parse-buffer)
-         '(keyword)
-       #'org-extras--filetags))))
+  (with-current-buffer buffer-or-name
+    (plist-get
+     (org-export-get-environment)
+     :filetags)))
 
 (defun org-extras-get-filetags-in-file (file-path)
   "Return list of filetags in file at FILE-PATH."
-  (-flatten
-   (with-current-buffer (find-file-noselect file-path)
-     (org-element-map
-         (org-element-parse-buffer)
-         '(keyword)
-       #'org-extras--filetags))))
+  (org-extras-filetags-in-buffer
+   (find-file-noselect file-path)))
 
 (defun org-extras-get-all-tags-in-file ()
   "Returns a list of all unique tags used in the current org-mode file."
@@ -131,7 +103,7 @@ Reference: https://emacs.stackexchange.com/a/75954/37010"
   (interactive)
   (if top
       (org-insert-heading nil t t)
-    (org-insert-heading-respect-content))
+      (org-insert-heading-respect-content))
   (insert
    (org-extras-heading-text-for-today))
   (org-extras-set-created))
