@@ -42,7 +42,7 @@
    t
    (if include-archive
        "\\.org\\(_archive\\)?$"
-       "\\.org$")))
+     "\\.org$")))
 
 (defun org-extras-files-archive-files (file-paths)
   "Return list of archive files for FILE-PATHS."
@@ -103,7 +103,7 @@
   (interactive)
   (if top
       (org-insert-heading nil t t)
-      (org-insert-heading-respect-content))
+    (org-insert-heading-respect-content))
   (insert
    (org-extras-heading-text-for-today))
   (org-extras-set-created))
@@ -259,6 +259,19 @@ Based on `org-agenda-date-later'."
     (unless (string= ""
                      priority)
       priority)))
+
+(defun org-extras-get-content-under-heading (&optional pos)
+  "Return immediate content of heading at point or (optionally) POS."
+  (interactive)
+  (save-excursion
+    (when pos
+      (goto-char pos))
+    (org-back-to-heading)
+    (forward-line)
+    (unless (= (point) (point-max))
+      (let ((start (point))
+            (end (or (outline-next-heading) (point-max))))
+        (buffer-substring-no-properties start end)))))
 
 (provide 'org-extras)
 ;;; org-extras.el ends here
