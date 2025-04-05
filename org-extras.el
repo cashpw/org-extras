@@ -48,14 +48,54 @@
         archive-path))
     file-paths)))
 
-(defun org-extras-filetags-in-buffer (buffer-or-name)
-  "Return list of filetags in BUFFER-OR-NAME."
-  (with-current-buffer buffer-or-name
-    (plist-get (org-export-get-environment) :filetags)))
+(defun org-extras-get-inbuffer-option (option)
+  "Return value of #+OPTION in current buffer.
 
-(defun org-extras-get-filetags-in-file (file-path)
-  "Return list of filetags in file at FILE-PATH."
-  (org-extras-filetags-in-buffer (find-file-noselect file-path)))
+Example: `(org-extras-get-inbuffer-option \"title\")'."
+  ;; We use `org-export-get-environment' here, instead of `org-element-parse-buffer' because the
+  ;; later is much slower in large buffers.
+  (plist-get (org-export-get-environment) (intern (concat ":" option))))
+
+(defun org-extras-inbuffer-option-exists-p (option)
+  "Set #+OPTION to VALUE in current buffer."
+  (save-excursion
+    (let ((case-fold-search t))
+      (goto-char (point-min))
+      (search-forward-regexp (format "#\\+%s: " option) nil 'noerror))))
+
+(defun org-extras-set-inbuffer-option (option value)
+  "Set #+OPTION to VALUE in current buffer."
+  (if-let ((option-point (org-extras-inbuffer-option-exists-p option)))
+      (progn
+        (goto-char option-point)
+        (kill-line)
+        (insert value))
+    (goto-char (org-extras--add-empty-inbuffer-option option))
+    (insert (format "%s\n" value))))
+
+(defun org-extras--add-empty-inbuffer-option (option)
+  "Insert \"#+OPTION: \" into buffer with other inbuffer options."
+  (save-excursion
+    (goto-char
+     (or
+      ;; Existing option
+      (search-forward-regexp "#\\+[^:]: " nil 'noerror)
+      ;; :END: of buffer-level :PROPERTIES:
+      (when (save-excursion
+              (goto-char (point-min))
+              (string= (org-current-line-string) ":PROPERTIES:"))
+        (search-forward-regexp "^:END:")
+        (next-line))
+      (point-min)))
+    (beginning-of-line)
+    (insert (format "#+%s: " option))
+    (point)))
+
+(defun org-extras-get-property (pom property)
+  "Return value of PROPERTY at POM, else nil."
+  (let ((property-list (org-entry-properties pom property)))
+    (when property-list
+      (cdr (car property-list)))))
 
 (defun org-extras-get-all-tags-in-file ()
   "Returns a list of all unique tags used in the current org-mode file."
@@ -142,47 +182,6 @@ Based on `org-agenda-date-later'."
          (buffer (marker-buffer marker)))
     (with-current-buffer buffer
       (org-extras-reschedule-overdue-todo marker))))
-
-(defun org-extras-add-filetag (tag)
-  "Add another option; requires at least one option to already be present."
-  (goto-char (point-min))
-  (when (search-forward-regexp "#\\+\\(FILETAGS\\|filetags\\): "
-                               ;; bound
-                               nil
-                               ;; noerror
-                               t)
-    (progn
-      (end-of-line)
-      (insert (format "%s:" tag)))))
-
-(defun org-extras-set-filetags (tags)
-  "Add another option; requires at least one option to already be present."
-  (goto-char (point-min))
-  (progn
-    ;; Add filetags beneath the title; assumes there is a title
-    (when (search-forward-regexp "^#\\+\\(TITLE\\|title\\):")
-      (end-of-line)
-      (newline)
-      (org-extras-insert-option "FILETAGS" (format ":%s:" value)))))
-
-(defun org-extras-insert-option (option value)
-  "Insert an org-mode option (#+OPTION: VALUE)."
-  (insert (format "#+%s: %s\n" option value)))
-
-(defun org-extras-get-setting (setting)
-  "Return the value of SETTING."
-  (let ((setting (upcase setting)))
-    (org-element-map
-        (org-element-parse-buffer) 'keyword
-      (lambda (keyword)
-        (when (string= (org-element-property :key keyword) setting)
-          (org-element-property :value keyword))))))
-
-(defun org-extras-get-property (pom property)
-  "Return value of PROPERTY at POM, else nil."
-  (let ((property-list (org-entry-properties pom property)))
-    (when property-list
-      (cdr (car property-list)))))
 
 (defun org-extras-link-description-at-point ()
   "Reference: https://emacs.stackexchange.com/a/38297"
